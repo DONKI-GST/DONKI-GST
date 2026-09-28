@@ -1,3 +1,4 @@
+import './style.css';
 import { fetchGstEvents } from './api';
 import { renderEvents, renderStatus } from './ui';
 import { validateDateRange } from './validation';
@@ -14,6 +15,7 @@ let controller;
 function setLoading(isLoading) {
   submitButton.disabled = isLoading;
   submitButton.textContent = isLoading ? 'Consultando...' : 'Buscar eventos';
+  results.setAttribute('aria-busy', String(isLoading));
 }
 
 function setDefaultDates() {
@@ -35,7 +37,6 @@ async function onSearch(event) {
   const validation = validateDateRange(startDate, endDate);
   if (!validation.valid) {
     renderStatus(status, { type: 'error', message: validation.message });
-    renderEvents(results, []);
     return;
   }
 
@@ -57,9 +58,9 @@ async function onSearch(event) {
 
     renderStatus(status, {
       type: 'success',
-      message: `${events.length} evento(s) carregado(s).`,
+      message: `${events.length} evento(s) carregado(s) com sucesso.`,
     });
-    renderEvents(results, events);
+    renderEvents(results, events, { range: { startDate, endDate } });
   } catch (error) {
     if (error.name === 'AbortError') {
       return;
@@ -69,7 +70,13 @@ async function onSearch(event) {
       type: 'error',
       message: error.message || 'Erro inesperado ao consultar DONKI-GST.',
     });
-    results.textContent = '';
+
+    if (!results.hasChildNodes()) {
+      renderEvents(results, [], {
+        range: { startDate, endDate },
+        emptyMessage: 'Sem dados exibidos no momento. Tente novamente em instantes.',
+      });
+    }
   } finally {
     setLoading(false);
   }

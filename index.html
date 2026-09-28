@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DONKI-GST Dashboard</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Monitor DONKI-GST</h1>
+      <p class="subtitle">Consulta de tempestades geomagnéticas da API DONKI.</p>
+
+      <form id="search-form" novalidate>
+        <label>
+          Data inicial
+          <input id="start-date" name="startDate" type="date" required />
+        </label>
+        <label>
+          Data final
+          <input id="end-date" name="endDate" type="date" required />
+        </label>
+        <button id="submit-button" type="submit">Buscar eventos</button>
+      </form>
+
+      <section id="status" role="status" aria-live="polite"></section>
+      <section id="results" aria-label="Eventos GST"></section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

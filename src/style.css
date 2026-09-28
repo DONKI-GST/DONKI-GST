@@ -1,0 +1,105 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f2f6fb;
+  color: #17233a;
+}
+
+.container {
+  width: min(920px, 92vw);
+  margin: 2rem auto;
+}
+
+h1 {
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  margin-top: 0;
+  color: #4f5f79;
+}
+
+form {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+label {
+  display: grid;
+  font-weight: 600;
+  gap: 0.35rem;
+}
+
+input,
+button {
+  min-height: 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #c9d4e5;
+  padding: 0 0.75rem;
+}
+
+button {
+  background: #2b6ef3;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #7f9bd8;
+  cursor: not-allowed;
+}
+
+#status {
+  min-height: 1.5rem;
+  margin: 0.5rem 0 1rem;
+  font-weight: 600;
+}
+
+#status.error {
+  color: #b11f3a;
+}
+
+#status.success {
+  color: #1d7d42;
+}
+
+#status.loading {
+  color: #3059b3;
+}
+
+#results {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.event-card {
+  background: #fff;
+  border: 1px solid #d8e2f1;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.event-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.event-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.empty {
+  margin: 0;
+}

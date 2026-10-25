@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tempestades geomagnéticas | DONKI-GST</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1733; --surface:#18224a; --line:#2b3768; --text:#e9edff; --muted:#a3aedb;
+  --g0:#5b6aa8; --g1:#6fd3b5; --g2:#e3d96f; --g3:#f0a35e; --g4:#ec6f7a; --g5:#c866e0;
+  --display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
+  --body:"Source Sans 3","Segoe UI",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 1rem/1.55 var(--body)}
+main{max-width:960px;margin:0 auto;padding:2rem 1.25rem 3rem}
+h1{font:800 clamp(2rem,6vw,3.4rem)/1.05 var(--display);margin:0 0 .6rem;letter-spacing:-.02em}
+h2{font:600 1.25rem/1.2 var(--display);margin:2.2rem 0 .8rem}
+.lead{color:var(--muted);max-width:60ch;margin:0 0 1rem}
+.status{display:inline-block;padding:.35rem .8rem;border:1px solid var(--line);border-radius:999px;font-size:.9rem;color:var(--muted)}
+.status b{color:var(--text);font-weight:600}
+.controls{display:flex;flex-wrap:wrap;gap:1rem;margin:1.6rem 0 .5rem}
+label{display:flex;flex-direction:column;gap:.25rem;font-size:.9rem;color:var(--muted)}
+select,button{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.5rem .7rem}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--g1);outline-offset:2px}
+.summary{font-size:1.1rem;margin:.8rem 0}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:.4rem 1rem;margin:.7rem 0 0;font-size:.85rem;color:var(--muted)}
+.legend i{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;margin-right:.35rem;vertical-align:-1px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:.65rem .9rem;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);background:var(--surface)}
+tr:last-child td{border-bottom:0}
+.badge{display:inline-block;min-width:2.6rem;text-align:center;padding:.1rem .5rem;border-radius:6px;font-weight:600;color:#0f1733}
+a{color:var(--g1)}
+.msg{padding:1rem;border:1px dashed var(--line);border-radius:12px;color:var(--muted)}
+.more{margin-top:1rem}
+footer{margin-top:2.5rem;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>Tempestades geomagnéticas</h1>
+  <p class="lead">Eventos registrados pelo DONKI da NASA. O pipeline coleta os dados automaticamente e o painel mostra a intensidade de cada tempestade pelo índice Kp.</p>
+  <p class="status" id="status">Carregando última atualização...</p>
+
+  <div class="controls">
+    <label>Período
+      <select id="periodo">
+        <option value="30">Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+        <option value="180" selected>Últimos 180 dias</option>
+        <option value="0">Tudo que está no banco</option>
+      </select>
+    </label>
+    <label>Intensidade mínima
+      <select id="nivel">
+        <option value="0">Todas</option>
+        <option value="1">G1 ou mais (Kp 5+)</option>
+        <option value="2">G2 ou mais (Kp 6+)</option>
+        <option value="3">G3 ou mais (Kp 7+)</option>
+        <option value="4">G4 ou mais (Kp 8+)</option>
+        <option value="5">Somente G5 (Kp 9)</option>
+      </select>
+    </label>
+  </div>
+
+  <p class="summary" id="resumo" aria-live="polite"></p>
+
+  <h2>Kp máximo de cada tempestade</h2>
+  <div class="chart" id="grafico"></div>
+  <div class="legend" id="legenda"></div>
+
+  <h2>Lista de eventos</h2>
+  <div id="tabela"></div>
+
+  <footer>Fonte: NASA DONKI (GST). Dados lidos da API REST do Supabase, somente leitura.</footer>
+</main>
+
+<script>
+// Chaves PÚBLICAS (somente leitura). Nunca coloque a secret/service key aqui.
+const SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
+const SUPABASE_KEY = "SUA_PUBLISHABLE_KEY";
+
+const CORES = ["var(--g0)","var(--g1)","var(--g2)","var(--g3)","var(--g4)","var(--g5)"];
+const PASSO = 25;
+let eventos = [];
+let mostrados = PASSO;
+
+function escapeHtml(valor){
+  return String(valor ?? "").replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+const $ = id => document.getElementById(id);
+const fmtData = iso => new Date(iso).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:"UTC"}) + " UTC";
+const linkSeguro = url => /^https:\/\//.test(url || "") ? url : "";
+
+async function consultar(caminho){
+  const r = await fetch(SUPABASE_URL + "/rest/v1/" + caminho, {headers:{apikey:SUPABASE_KEY}});
+  if(!r.ok) throw new Error("A API respondeu " + r.status);
+  return r.json();
+}
+
+async function carregar(){
+  try{
+    const [lista, exec] = await Promise.all([
+      consultar("gst_eventos?select=gst_id,start_time,kp_max,nivel_g,qtd_medicoes,link&order=start_time.desc&limit=1000"),
+      consultar("execucoes?select=finalizado_em,status,registros_processados&order=finalizado_em.desc&limit=1")
+    ]);
+    eventos = lista;
+    if(exec.length){
+      const e = exec[0];
+      $("status").innerHTML = "Última atualização do pipeline: <b>" + escapeHtml(fmtData(e.finalizado_em)) +
+        "</b> (" + escapeHtml(e.status.replace("_"," ")) + ", " + escapeHtml(e.registros_processados) + " registros)";
+    } else {
+      $("status").textContent = "O pipeline ainda não registrou nenhuma execução.";
+    }
+    desenhar();
+  }catch(erro){
+    $("status").textContent = "Não foi possível carregar os dados.";
+    $("tabela").innerHTML = '<p class="msg">' + escapeHtml(erro.message) +
+      ". Confira SUPABASE_URL e SUPABASE_KEY no index.html e se o setup.sql foi executado.</p>";
+  }
+}
+
+function filtrados(){
+  const dias = Number($("periodo").value), min = Number($("nivel").value);
+  const corte = dias ? Date.now() - dias*864e5 : 0;
+  return eventos.filter(e => new Date(e.start_time).getTime() >= corte && e.nivel_g >= min);
+}
+
+function desenhar(){
+  const dados = filtrados();
+  const maxKp = dados.reduce((m,e) => Math.max(m, Number(e.kp_max)||0), 0);
+  $("resumo").textContent = dados.length
+    ? dados.length + (dados.length===1 ? " tempestade" : " tempestades") + " no filtro atual. Maior Kp: " + maxKp.toString().replace(".",",") + "."
+    : "";
+  grafico(dados);
+  tabela(dados);
+}
+
+function grafico(dados){
+  if(!dados.length){ $("grafico").innerHTML = '<p class="msg">Nenhuma tempestade neste filtro. Amplie o período ou reduza a intensidade mínima.</p>'; $("legenda").innerHTML=""; return; }
+  const asc = [...dados].sort((a,b) => new Date(a.start_time) - new Date(b.start_time));
+  const W=800, H=240, ml=44, mb=24, mt=8, util=W-ml-6, alt=H-mb-mt;
+  const passo = util/asc.length, larg = Math.max(2, passo*0.72);
+  const y = kp => mt + alt - (kp/9)*alt;
+  let s = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Gráfico de barras do Kp máximo por tempestade">';
+  [0,5,6,7,8,9].forEach(k => {
+    s += '<line x1="'+ml+'" x2="'+W+'" y1="'+y(k)+'" y2="'+y(k)+'" stroke="var(--line)" stroke-dasharray="'+(k?'3 4':'0')+'"/>' +
+         '<text x="'+(ml-6)+'" y="'+(y(k)+4)+'" text-anchor="end" font-size="11" fill="var(--muted)">'+(k>=5 ? 'G'+(k-4) : '0')+'</text>';
+  });
+  asc.forEach((e,i) => {
+    const kp = Number(e.kp_max)||0, x = ml + i*passo, h = Math.max(1, alt - (y(kp)-mt));
+    s += '<rect x="'+x.toFixed(1)+'" y="'+y(kp).toFixed(1)+'" width="'+larg.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+CORES[e.nivel_g]+'">' +
+         '<title>'+escapeHtml(fmtData(e.start_time)+": Kp "+kp)+'</title></rect>';
+  });
+  s += '<text x="'+ml+'" y="'+(H-6)+'" font-size="11" fill="var(--muted)">'+escapeHtml(fmtData(asc[0].start_time).slice(0,8))+'</text>' +
+       '<text x="'+W+'" y="'+(H-6)+'" text-anchor="end" font-size="11" fill="var(--muted)">'+escapeHtml(fmtData(asc[asc.length-1].start_time).slice(0,8))+'</text></svg>';
+  $("grafico").innerHTML = s;
+  $("legenda").innerHTML = ["Abaixo de G1","G1","G2","G3","G4","G5"].map((n,i) =>
+    '<span><i style="background:'+CORES[i]+'"></i>'+escapeHtml(n)+'</span>').join("");
+}
+
+function tabela(dados){
+  if(!dados.length){ $("tabela").innerHTML = '<p class="msg">Nenhum evento para mostrar.</p>'; return; }
+  const linhas = dados.slice(0, mostrados).map(e => {
+    const url = linkSeguro(e.link);
+    return "<tr><td>"+escapeHtml(fmtData(e.start_time))+"</td>" +
+      "<td>"+escapeHtml(e.kp_max ?? "sem dado")+"</td>" +
+      '<td><span class="badge" style="background:'+CORES[e.nivel_g]+'">'+(e.nivel_g ? "G"+escapeHtml(e.nivel_g) : "-")+"</span></td>" +
+      "<td>"+escapeHtml(e.qtd_medicoes)+"</td>" +
+      "<td>"+(url ? '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Abrir na NASA</a>' : "sem link")+"</td></tr>";
+  }).join("");
+  $("tabela").innerHTML = '<div class="tablewrap"><table><thead><tr><th>Início</th><th>Kp máximo</th><th>Nível</th><th>Medições</th><th>Fonte</th></tr></thead><tbody>'+linhas+"</tbody></table></div>" +
+    (dados.length > mostrados ? '<button class="more" id="mais">Mostrar mais ('+escapeHtml(dados.length-mostrados)+' restantes)</button>' : "");
+  const b = $("mais"); if(b) b.onclick = () => { mostrados += PASSO; tabela(dados); };
+}
+
+["periodo","nivel"].forEach(id => $(id).addEventListener("change", () => { mostrados = PASSO; desenhar(); }));
+carregar();
+</script>
+</body>
+</html>
